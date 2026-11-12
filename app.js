@@ -718,6 +718,24 @@ function init() {
   $("#emptyPreset").textContent = `📦 导入精选库（${PRESET_PROMPTS.length} 条）`;
   bindEvents();
   renderAll();
+  runDemoMode();
+}
+
+/* 演示模式：通过 #demo=xxx 直达指定界面状态（也便于录屏与分享深链） */
+function runDemoMode() {
+  const m = location.hash.match(/demo=(\w+)/);
+  if (!m) return;
+  const mode = m[1];
+  if (mode === "dark") { if (!document.body.classList.contains("dark")) toggleTheme(); return; }
+  if (mode === "dashboard") { state.view = "dashboard"; renderAll(); return; }
+  if (mode === "edit") { openEdit(state.prompts.find(p => getVars(p.content).length)?.id || null); return; }
+  if (mode === "fill") {
+    const p = state.prompts.find(x => getVars(x.content).length);
+    if (p) { openFill(p.id); const first = $("#fillForm textarea, #fillForm input"); if (first) first.value = mode === "fill" ? "示例内容" : ""; updateFillPreview(); }
+    return;
+  }
+  if (mode === "cmd") { openCmd(); return; }
+  if (mode === "io") { showModal("ioModal"); return; }
 }
 
 init();
