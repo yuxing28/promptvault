@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="PromptVault 提示词弹药库 — 把你最好的 AI 提示词，变成可检索、可复用、可迭代的资产。">
+<title>PromptVault · 提示词弹药库</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧲</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 顶部导航 -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand" id="brandHome" title="回到首页">
+        <span class="brand-logo">🧲</span>
+        <span class="brand-name">PromptVault<span class="brand-sub">提示词弹药库</span></span>
+      </div>
+      <div class="search-wrap">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="searchInput" type="text" placeholder="搜索提示词、标签、内容…  (Ctrl+K)" autocomplete="off">
+        <kbd class="search-kbd">Ctrl K</kbd>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn ghost" id="dashboardBtn" title="数据看板">📊<span class="btn-text">看板</span></button>
+        <button class="btn ghost" id="importExportBtn" title="导入 / 导出"> ⇅<span class="btn-text">导入导出</span></button>
+        <button class="btn ghost icon-only" id="themeBtn" title="切换主题">🌙</button>
+        <button class="btn primary" id="newBtn">＋ 新建提示词</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主区域 -->
+  <main class="main">
+    <!-- 看板视图 -->
+    <section id="dashboardView" class="dashboard hidden">
+      <h2 class="section-title">资产看板</h2>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">提示词总数</div></div>
+        <div class="stat-card"><div class="stat-num" id="statFav">0</div><div class="stat-label">已收藏</div></div>
+        <div class="stat-card"><div class="stat-num" id="statCopies">0</div><div class="stat-label">累计复制</div></div>
+        <div class="stat-card"><div class="stat-num" id="statVersions">0</div><div class="stat-label">版本快照</div></div>
+      </div>
+      <div class="dashboard-grid">
+        <div class="panel">
+          <h3>分类分布</h3>
+          <div id="catDist" class="cat-dist"></div>
+        </div>
+        <div class="panel">
+          <h3>最常用 TOP 5</h3>
+          <div id="topUsed" class="top-used"></div>
+        </div>
+      </div>
+      <div class="center-back"><button class="btn ghost" id="dashboardBack">← 返回卡片库</button></div>
+    </section>
+
+    <!-- 列表视图 -->
+    <section id="listView">
+      <!-- 筛选栏 -->
+      <div class="filter-bar">
+        <div class="cat-chips" id="catChips"></div>
+        <div class="filter-right">
+          <label class="fav-toggle"><input type="checkbox" id="favOnly"> ★ 仅收藏</label>
+          <select id="sortSelect" class="select">
+            <option value="updated">最近更新</option>
+            <option value="created">最新创建</option>
+            <option value="used">最常使用</option>
+            <option value="title">标题 A→Z</option>
+          </select>
+          <div class="tag-box" id="tagBox"></div>
+        </div>
+      </div>
+
+      <!-- 卡片墙 -->
+      <div id="cardGrid" class="card-grid"></div>
+      <div id="emptyState" class="empty hidden">
+        <div class="empty-emoji">🧲</div>
+        <div class="empty-title" id="emptyTitle">弹药库还是空的</div>
+        <div class="empty-desc" id="emptyDesc">新建第一条提示词，或导入精选弹药库开箱即用</div>
+        <div class="empty-actions">
+          <button class="btn primary" id="emptyNew">＋ 新建提示词</button>
+          <button class="btn ghost" id="emptyPreset">📦 导入精选库</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>PromptVault · 数据保存在你的浏览器本地，不上传任何服务器</span>
+    <span class="footer-keys">快捷键：<kbd>Ctrl K</kbd> 搜索 · <kbd>N</kbd> 新建 · <kbd>/</kbd> 聚焦搜索</span>
+  </footer>
+</div>
+
+<!-- 编辑/新建弹窗 -->
+<div class="modal-mask hidden" id="editModal">
+  <div class="modal modal-edit">
+    <div class="modal-head">
+      <h3 id="editModalTitle">新建提示词</h3>
+      <button class="modal-close" data-close="editModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>标题 <span class="req">*</span></label>
+        <input id="fTitle" type="text" maxlength="60" placeholder="例如：代码审查专家">
+      </div>
+      <div class="form-row">
+        <label>内容 <span class="req">*</span> <span class="hint">支持 <code>{{变量}}</code> 占位符，使用时可填空生成</span></label>
+        <textarea id="fContent" rows="9" placeholder="你是一位资深的{{语言}}代码审查专家，请审查以下代码，从正确性、性能、可读性三个维度给出建议：{{代码}}"></textarea>
+        <div class="var-hint hidden" id="varHint"></div>
+      </div>
+      <div class="form-row-grid">
+        <div class="form-row">
+          <label>分类</label>
+          <select id="fCategory" class="select">
+            <option>编程开发</option><option>写作创作</option><option>办公效率</option>
+            <option>学习提升</option><option>数据分析</option><option>营销运营</option>
+            <option>生活助手</option><option>未分类</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>标签 <span class="hint">逗号分隔</span></label>
+          <input id="fTags" type="text" placeholder="代码, 审查, 质量保障">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>颜色标记</label>
+        <div class="color-row" id="colorRow"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="foot-note" id="editFootNote"></span>
+      <div>
+        <button class="btn ghost" data-close="editModal">取消</button>
+        <button class="btn primary" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 变量填空弹窗 -->
+<div class="modal-mask hidden" id="fillModal">
+  <div class="modal modal-fill">
+    <div class="modal-head">
+      <h3 id="fillModalTitle">填空生成</h3>
+      <button class="modal-close" data-close="fillModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="fillForm" class="fill-form"></div>
+      <div class="preview-box">
+        <div class="preview-label">实时预览</div>
+        <pre id="fillPreview" class="preview-pre"></pre>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="foot-note">填完后一键复制成品提示词</span>
+      <div>
+        <button class="btn ghost" data-close="fillModal">取消</button>
+        <button class="btn primary" id="fillCopyBtn">复制成品</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 版本历史弹窗 -->
+<div class="modal-mask hidden" id="versionModal">
+  <div class="modal modal-version">
+    <div class="modal-head">
+      <h3 id="versionModalTitle">版本历史</h3>
+      <button class="modal-close" data-close="versionModal">✕</button>
+    </div>
+    <div class="modal-body"><div id="versionList" class="version-list"></div></div>
+  </div>
+</div>
+
+<!-- 导入导出弹窗 -->
+<div class="modal-mask hidden" id="ioModal">
+  <div class="modal modal-io">
+    <div class="modal-head">
+      <h3>导入 / 导出</h3>
+      <button class="modal-close" data-close="ioModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="io-row">
+        <div class="io-block">
+          <h4>导出备份</h4>
+          <p>将全部提示词导出为 JSON 文件，可跨设备迁移。</p>
+          <button class="btn ghost" id="exportBtn">⇓ 导出 JSON</button>
+        </div>
+        <div class="io-block">
+          <h4>导入数据</h4>
+          <p>选择之前导出的 JSON 文件进行恢复（合并去重）。</p>
+          <input type="file" id="importFile" accept=".json" class="file-input">
+        </div>
+        <div class="io-block">
+          <h4>分享码导入</h4>
+          <p>粘贴他人分享的分享码，一键导入该提示词。</p>
+          <div class="share-import">
+            <input id="shareInput" type="text" placeholder="粘贴分享码…">
+            <button class="btn ghost" id="shareImportBtn">导入</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 命令面板 -->
+<div class="modal-mask hidden" id="cmdModal">
+  <div class="modal modal-cmd">
+    <input id="cmdInput" type="text" placeholder="输入命令或搜索提示词…" autocomplete="off">
+    <div id="cmdList" class="cmd-list"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toastWrap" class="toast-wrap"></div>
+
+<script src="presets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
